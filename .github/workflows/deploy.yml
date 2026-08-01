@@ -26,7 +26,7 @@ jobs:
           DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
         run: |
           npm ci
-          npx serverless deploy
+          npx serverless@3 deploy
 
   deploy-frontend:
     name: Deploy Web (Next.js/S3)
