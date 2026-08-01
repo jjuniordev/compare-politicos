@@ -1,0 +1,22 @@
+service: compare-politicos-api
+useDotenv: true
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  environment:
+    DATABASE_URL: ${env:DATABASE_URL} # Puxa do seu arquivo .env local ou CI
+
+functions:
+  api:
+    handler: app.handler
+    events:
+      - httpApi:
+          path: /
+          method: 'GET'
+      - httpApi:
+          path: /api
+          method: 'GET'
+      - httpApi:
+          path: /api/{proxy+}
+          method: '*'
