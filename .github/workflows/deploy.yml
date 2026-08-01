@@ -19,7 +19,7 @@ jobs:
           node-version: '20'
 
       - name: Instalar dependências e Deploy
-        working-directory: ./compare-backend
+        working-directory: ./compare-politicos-backend
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -41,13 +41,13 @@ jobs:
           node-version: '20'
 
       - name: Build Next.js
-        working-directory: ./compare-frontend
+        working-directory: ./compare-politicos-frontend
         run: |
           npm ci
           npm run build
 
       - name: Sincronizar com S3 e Invalidar Cache CloudFront
-        working-directory: ./compare-frontend
+        working-directory: ./compare-politicos-frontend
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
