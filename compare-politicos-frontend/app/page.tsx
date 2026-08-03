@@ -15,12 +15,14 @@ export default function Home() {
   const [deputados, setDeputados] = useState<Deputado[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // IMPORTANTE: Troque a URL abaixo pela URL gerada pelo seu 'serverless deploy'
-    // Exemplo: https://xyz.execute-api.us-east-1.amazonaws.com/api/df/deputados
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/df/deputados'; // Fallback só de exemplo
+useEffect(() => {
+    // Pega a raiz da API (na nuvem ou local)
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     
-    fetch(apiUrl)
+    // Concatena com o endpoint específico que esta página precisa
+    const endpoint = `${baseUrl}/api/df/deputados`;
+    
+    fetch(endpoint)
       .then((res) => res.json())
       .then((json) => {
         if (json.success) {
