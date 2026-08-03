@@ -1,5 +1,8 @@
 service: compare-politicos-api
+
+frameworkVersion: '3'
 useDotenv: true
+
 provider:
   name: aws
   runtime: nodejs20.x
@@ -8,8 +11,12 @@ provider:
     DATABASE_URL: ${env:DATABASE_URL} # Puxa do seu arquivo .env local ou CI
 
 functions:
+  # -----------------------------------------------------
+  # 1. API PUBLICA (Consumida pelo Frontend Next.js)
+  # -----------------------------------------------------
   api:
-    handler: app.handler
+    handler: src/api/app.handler
+    description: "Servidor Koa.js para rotas da API"
     events:
       - httpApi:
           path: /
@@ -20,3 +27,23 @@ functions:
       - httpApi:
           path: /api/{proxy+}
           method: '*'
+
+  # -----------------------------------------------------
+  # 2. WORKERS / ETL (Rotinas de Background)
+  # -----------------------------------------------------
+  syncDfDeputados:
+    handler: src/workers/sync-df-deputados.handler
+    description: "Sincroniza a tabela df_deputados com a API da Camara"
+    timeout: 60 # Aumentamos para 60s pois requisições externas podem oscilar
+    events:
+      # O EventBridge aciona esta função automaticamente
+      # Roda toda madrugada de domingo às 03:00 (06:00 UTC)
+      - schedule: cron(0 6 ? * 1 *)
+  
+  syncDfPartidos:
+    handler: src/workers/sync-df-partidos.handler
+    description: "Sincroniza a tabela df_partidos com a API da Camara"
+    timeout: 30
+    events:
+      # Roda aos domingos às 02:00 (antes dos deputados)
+      - schedule: cron(0 5 ? * 1 *)
