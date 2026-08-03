@@ -1,91 +1,179 @@
 'use client';
-import { useEffect, useState } from 'react';
-import Image from 'next/image';
+import { useEffect, useMemo, useState } from 'react';
+import { FilterBar } from '@/components/FilterBar';
+import { DeputadoCard } from '@/components/DeputadoCard';
+import { Header } from '@/components/Header';
+import { LoadingGrid } from '@/components/LoadingGrid';
+import { EmptyState } from '@/components/EmptyState';
+import type { Deputado, DeputadosResponse } from '@/types/deputado';
 
-// Interface para garantir tipagem dos dados
-interface Deputado {
-  id: number;
-  nome: string;
-  sigla_partido: string;
-  sigla_uf: string;
-  url_foto: string;
-}
+const PAGE_SIZE = 200;
 
 export default function Home() {
   const [deputados, setDeputados] = useState<Deputado[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUf, setSelectedUf] = useState('');
+  const [selectedPartido, setSelectedPartido] = useState('');
 
-useEffect(() => {
-    // Pega a raiz da API (na nuvem ou local)
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    
-    // Concatena com o endpoint específico que esta página precisa
-    const endpoint = `${baseUrl}/api/df/deputados`;
-    
-    fetch(endpoint)
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) {
-          setDeputados(json.data);
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+
+    const fetchAllDeputados = async () => {
+      try {
+        setError(null);
+
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+        const collected: Deputado[] = [];
+        const seenIds = new Set<number>();
+
+        let offset = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const params = new URLSearchParams({
+            limit: String(PAGE_SIZE),
+            offset: String(offset)
+          });
+
+          const endpoint = `${baseUrl}/api/df/deputados?${params.toString()}`;
+          const response = await fetch(endpoint, { signal: controller.signal });
+
+          if (!response.ok) {
+            throw new Error(`Falha na API (${response.status})`);
+          }
+
+          const json: DeputadosResponse = await response.json();
+          if (!json.success) {
+            throw new Error(json.message || 'Erro ao carregar deputados');
+          }
+
+          const incoming = json.data ?? [];
+
+          for (const deputado of incoming) {
+            if (!seenIds.has(deputado.id)) {
+              seenIds.add(deputado.id);
+              collected.push(deputado);
+            }
+          }
+
+          const apiHasMore = json.pagination?.has_more ?? incoming.length === PAGE_SIZE;
+          const apiNextOffset = json.pagination?.next_offset;
+          const fallbackNextOffset = offset + incoming.length;
+          const nextOffset = apiNextOffset ?? fallbackNextOffset;
+
+          if (incoming.length === 0 || !apiHasMore || nextOffset <= offset) {
+            hasMore = false;
+          } else {
+            offset = nextOffset;
+          }
         }
-      })
-      .catch((err) => console.error("Erro ao buscar dados:", err))
-      .finally(() => setLoading(false));
+
+        if (!active) {
+          return;
+        }
+
+        setDeputados(collected);
+      } catch (err) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const message = err instanceof Error ? err.message : 'Erro inesperado ao carregar deputados';
+        if (active) {
+          setError(message);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void fetchAllDeputados();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, []);
 
+  const ufs = useMemo(() => {
+    return [...new Set(deputados.map((item) => item.sigla_uf))].sort((a, b) => a.localeCompare(b));
+  }, [deputados]);
+
+  const partidos = useMemo(() => {
+    return [...new Set(deputados.map((item) => item.sigla_partido))].sort((a, b) => a.localeCompare(b));
+  }, [deputados]);
+
+  const deputadosFiltrados = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return deputados.filter((item) => {
+      const matchNome = normalizedSearch.length === 0 || item.nome.toLowerCase().includes(normalizedSearch);
+      const matchUf = selectedUf.length === 0 || item.sigla_uf === selectedUf;
+      const matchPartido = selectedPartido.length === 0 || item.sigla_partido === selectedPartido;
+      return matchNome && matchUf && matchPartido;
+    });
+  }, [deputados, searchTerm, selectedUf, selectedPartido]);
+
+  const hasActiveFilters =
+    searchTerm.trim().length > 0 || selectedUf.length > 0 || selectedPartido.length > 0;
+
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 p-8">
-      <div className="max-w-6xl mx-auto">
-        
-        <header className="mb-10 text-center">
-          <h1 className="text-4xl font-extrabold text-blue-900 mb-2">Compare Políticos</h1>
-          <p className="text-slate-500">Acompanhe e compare os dados abertos dos Deputados Federais.</p>
-        </header>
+    <>
+      <Header />
 
-        {loading ? (
-          <div className="flex justify-center items-center h-40">
-            <p className="text-slate-400 animate-pulse">Carregando dados oficiais...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {deputados.map((deputado) => (
-              <div 
-                key={deputado.id} 
-                className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer flex flex-col items-center p-6"
-              >
-                {/* Foto do Parlamentar */}
-                <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-2 border-slate-100 bg-slate-100 relative">
-                  {deputado.url_foto ? (
-                    <img 
-                      src={deputado.url_foto} 
-                      alt={`Foto de ${deputado.nome}`}
-                      className="object-cover w-full h-full"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300">
-                      Sem Foto
-                    </div>
-                  )}
-                </div>
+      <main className="min-h-screen bg-[radial-gradient(1200px_500px_at_20%_-10%,#dbe7f2_0%,transparent_50%),radial-gradient(900px_500px_at_100%_0%,#d9f3e6_0%,transparent_45%),linear-gradient(to_bottom,#f6fafc,#edf4f8)] pb-12 pt-8">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+          <section className="mb-8">
+            <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur sm:p-8">
+              <p className="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-[#08b862]">Painel Nacional</p>
+              <h2 className="text-3xl font-bold tracking-tight text-[#25384d] sm:text-4xl">Deputados Federais</h2>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
+                Explore parlamentares, filtre por partido e estado e encontre rapidamente quem voce quer comparar.
+              </p>
+            </div>
+          </section>
 
-                {/* Informações */}
-                <h2 className="text-lg font-bold text-slate-800 text-center leading-tight mb-1">
-                  {deputado.nome}
-                </h2>
-                
-                <div className="flex gap-2 mt-2">
-                  <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full border border-blue-100">
-                    {deputado.sigla_partido}
-                  </span>
-                  <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-100">
-                    {deputado.sigla_uf}
-                  </span>
-                </div>
-              </div>
-            ))}
+          <div className="mb-6">
+            <FilterBar
+              searchTerm={searchTerm}
+              selectedUf={selectedUf}
+              selectedPartido={selectedPartido}
+              ufs={ufs}
+              partidos={partidos}
+              total={deputados.length}
+              filteredTotal={deputadosFiltrados.length}
+              onSearchChange={setSearchTerm}
+              onUfChange={setSelectedUf}
+              onPartidoChange={setSelectedPartido}
+            />
           </div>
-        )}
-      </div>
-    </main>
+
+          {loading ? <LoadingGrid /> : null}
+
+          {!loading && error ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          {!loading && !error ? (
+            deputadosFiltrados.length > 0 ? (
+              <section id="deputados" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+                {deputadosFiltrados.map((deputado) => (
+                  <DeputadoCard key={deputado.id} deputado={deputado} />
+                ))}
+              </section>
+            ) : (
+              <EmptyState hasFilters={hasActiveFilters} />
+            )
+          ) : null}
+        </div>
+      </main>
+    </>
   );
 }

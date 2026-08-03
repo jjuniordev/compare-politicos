@@ -1,0 +1,36 @@
+name: Auto PR (Develop -> Main)
+
+on:
+  push:
+    branches:
+      - develop
+
+# Garante que o GITHUB_TOKEN tem permissão para criar o PR
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  create-pull-request:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Criar ou Atualizar PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Verifica se já existe um PR aberto de develop para main
+          PR_EXISTS=$(gh pr list --base main --head develop --state open --json number --jq 'length')
+          
+          if [ "$PR_EXISTS" -eq "0" ]; then
+            gh pr create \
+              --base main \
+              --head develop \
+              --title "🔄 Merge automático: develop ➔ main" \
+              --body "Pull Request criado automaticamente pela esteira após atualizações na branch \`develop\`."
+            echo "PR criado com sucesso!"
+          else
+            echo "Já existe um PR aberto de develop para main. O GitHub atualizará o PR existente automaticamente."
+          fi

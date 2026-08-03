@@ -23,21 +23,56 @@ router.get('/api', async (ctx) => {
   ctx.body = { success: true, message: 'Endpoints disponíveis em /api/df/deputados' };
 });
 
-// Endpoint para listar os deputados (Limitado a 50 inicialmente para não pesar a tela)
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 200;
+
+const parsePositiveInt = (value) => {
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed)) {
+    return null;
+  }
+  return parsed;
+};
+
+// Endpoint paginado para listar deputados com suporte a rolagem infinita no frontend
 router.get('/api/df/deputados', async (ctx) => {
+  const limitParam = parsePositiveInt(ctx.query.limit);
+  const offsetParam = parsePositiveInt(ctx.query.offset);
+
+  const limit = limitParam === null ? DEFAULT_LIMIT : limitParam;
+  const offset = offsetParam === null ? 0 : offsetParam;
+
+  if (limit < 1 || limit > MAX_LIMIT || offset < 0) {
+    ctx.status = 400;
+    ctx.body = {
+      success: false,
+      message: `Parâmetros inválidos. Use limit entre 1 e ${MAX_LIMIT} e offset maior ou igual a 0.`
+    };
+    return;
+  }
+
   const client = await pool.connect();
   try {
     const query = `
       SELECT id, nome, sigla_partido, sigla_uf, url_foto 
       FROM df_deputados 
       ORDER BY nome ASC 
-      LIMIT 50;
+      LIMIT $1
+      OFFSET $2;
     `;
-    const result = await client.query(query);
+    const result = await client.query(query, [limit + 1, offset]);
+    const hasMore = result.rows.length > limit;
+    const data = hasMore ? result.rows.slice(0, limit) : result.rows;
     
     ctx.body = {
       success: true,
-      data: result.rows
+      data,
+      pagination: {
+        limit,
+        offset,
+        has_more: hasMore,
+        next_offset: hasMore ? offset + limit : null
+      }
     };
   } catch (error) {
     console.error('Erro ao buscar deputados:', error);
