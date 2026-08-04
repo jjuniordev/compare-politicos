@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { BarChart3, ChevronDown, GraduationCap, Landmark, Scale, Sparkles } from 'lucide-react';
+import { BarChart3, ChevronDown, GraduationCap, Landmark, Menu, Scale, Sparkles, X } from 'lucide-react';
 
 const deputadoLinks = [
   { label: 'Federais', href: '/deputados', icon: GraduationCap, disabled: false },
@@ -15,6 +15,7 @@ const deputadoLinks = [
 export function Header() {
   const pathname = usePathname();
   const [isDeputadosOpen, setIsDeputadosOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isHomeIndicators = pathname === '/';
@@ -132,7 +133,83 @@ export function Header() {
             Indicadores
           </Link>
         </nav>
+
+        <button
+          type="button"
+          className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition-colors hover:bg-slate-50 md:hidden"
+          onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+          aria-expanded={isMobileMenuOpen}
+          aria-label={isMobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+        >
+          {isMobileMenuOpen ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
+        </button>
       </div>
+
+      {isMobileMenuOpen ? (
+        <div className="border-t border-slate-200 bg-white md:hidden">
+          <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6">
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Deputados</p>
+                <div className="mt-2 space-y-1">
+                  <Link
+                    href="/deputados"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-white"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <GraduationCap className="size-4 text-slate-500" aria-hidden="true" />
+                    Federais
+                  </Link>
+                  <button
+                    type="button"
+                    disabled
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm text-slate-400"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Landmark className="size-4" aria-hidden="true" />
+                      Estaduais
+                    </span>
+                    <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                      Em breve
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm text-slate-400"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Scale className="size-4" aria-hidden="true" />
+                      Senadores
+                    </span>
+                    <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                      Em breve
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <Link
+                href="/#indicadores"
+                className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <BarChart3 className="size-4 text-slate-500" aria-hidden="true" />
+                Indicadores
+              </Link>
+
+              <Link
+                href="/comparar"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#10c96f] px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#08b862]"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Sparkles className="size-4" aria-hidden="true" />
+                Compare Agora
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 }
