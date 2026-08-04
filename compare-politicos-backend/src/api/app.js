@@ -20,7 +20,10 @@ router.get('/', async (ctx) => {
 });
 
 router.get('/api', async (ctx) => {
-  ctx.body = { success: true, message: 'Endpoints disponíveis em /api/df/deputados' };
+  ctx.body = {
+    success: true,
+    message: 'Endpoints disponíveis em /api/df/deputados e /api/df/deputados/:id/despesas/resumo'
+  };
 });
 
 const DEFAULT_LIMIT = 50;
@@ -76,6 +79,76 @@ router.get('/api/df/deputados', async (ctx) => {
     };
   } catch (error) {
     console.error('Erro ao buscar deputados:', error);
+    ctx.status = 500;
+    ctx.body = { success: false, message: 'Erro interno no servidor' };
+  } finally {
+    client.release();
+  }
+});
+
+router.get('/api/df/deputados/:id/despesas/resumo', async (ctx) => {
+  const deputadoId = parsePositiveInt(ctx.params.id);
+
+  if (deputadoId === null || deputadoId < 1) {
+    ctx.status = 400;
+    ctx.body = {
+      success: false,
+      message: 'ID de deputado inválido.'
+    };
+    return;
+  }
+
+  const client = await pool.connect();
+
+  try {
+    const query = `
+      WITH deputado_despesas AS (
+        SELECT
+          tipo_despesa,
+          valor,
+          data_emissao
+        FROM df_deputado_despesas
+        WHERE deputado_id = $1
+      ),
+      monthly_totals AS (
+        SELECT
+          DATE_TRUNC('month', data_emissao)::date AS mes,
+          SUM(valor) AS total_mes
+        FROM deputado_despesas
+        WHERE data_emissao IS NOT NULL
+        GROUP BY 1
+      ),
+      top_categoria AS (
+        SELECT
+          tipo_despesa,
+          SUM(valor) AS total_categoria
+        FROM deputado_despesas
+        WHERE tipo_despesa IS NOT NULL
+        GROUP BY tipo_despesa
+        ORDER BY total_categoria DESC
+        LIMIT 1
+      )
+      SELECT
+        COALESCE((SELECT SUM(valor) FROM deputado_despesas), 0)::float8 AS gasto_total_acumulado,
+        COALESCE((SELECT MAX(valor) FROM deputado_despesas), 0)::float8 AS maior_despesa_unica,
+        COALESCE((SELECT AVG(total_mes) FROM monthly_totals), 0)::float8 AS gasto_medio_mensal,
+        COALESCE((SELECT tipo_despesa FROM top_categoria), 'Sem categoria') AS categoria_que_mais_gastou;
+    `;
+
+    const result = await client.query(query, [deputadoId]);
+    const row = result.rows[0];
+
+    ctx.body = {
+      success: true,
+      data: {
+        gastoTotalAcumulado: row.gasto_total_acumulado,
+        maiorDespesaUnica: row.maior_despesa_unica,
+        gastoMedioMensal: row.gasto_medio_mensal,
+        categoriaMaisGastou: row.categoria_que_mais_gastou
+      }
+    };
+  } catch (error) {
+    console.error('Erro ao resumir despesas do deputado:', error);
     ctx.status = 500;
     ctx.body = { success: false, message: 'Erro interno no servidor' };
   } finally {
