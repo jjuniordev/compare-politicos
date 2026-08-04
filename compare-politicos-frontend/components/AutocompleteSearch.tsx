@@ -101,7 +101,7 @@ export function AutocompleteSearch({
   };
 
   return (
-    <div ref={wrapperRef} className="relative z-50">
+    <div ref={wrapperRef} className="relative z-50 overflow-visible">
       <label htmlFor="comparar-autocomplete" className="mb-2 block text-sm font-semibold text-slate-700">
         Buscar parlamentares para comparar
       </label>
@@ -127,7 +127,7 @@ export function AutocompleteSearch({
       </div>
 
       {isOpen && suggestions.length > 0 ? (
-        <ul className="absolute z-40 mt-2 max-h-80 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+        <ul className="absolute z-50 mt-2 max-h-80 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
           {suggestions.map((deputado, index) => (
             <li key={deputado.id}>
               <button
@@ -151,7 +151,7 @@ export function AutocompleteSearch({
       ) : null}
 
       {isOpen && query.trim().length > 0 && suggestions.length === 0 && !isLimitReached ? (
-        <div className="absolute z-40 mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-500 shadow-xl">
+        <div className="absolute z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-500 shadow-xl">
           Nenhum parlamentar encontrado para esta busca.
         </div>
       ) : null}
