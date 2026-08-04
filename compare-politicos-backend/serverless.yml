@@ -9,6 +9,16 @@ provider:
   region: us-east-1
   environment:
     DATABASE_URL: ${env:DATABASE_URL} # Puxa do seu arquivo .env local ou CI
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - sqs:SendMessage
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:GetQueueAttributes
+          Resource: !GetAtt SyncDespesasQueue.Arn
 
 functions:
   # -----------------------------------------------------
@@ -47,3 +57,30 @@ functions:
     events:
       # Roda aos domingos às 02:00 (antes dos deputados)
       - schedule: cron(0 5 ? * 1 *)
+
+  syncDespesasOrquestrador:
+    handler: src/workers/sync-despesas-orquestrador.handler
+    timeout: 60
+    environment:
+      # Passa a URL da fila para o código do Node
+      FILA_DESPESAS_URL: !Ref SyncDespesasQueue
+    events:
+      # Roda toda madruga de domingo, por exemplo
+      - schedule: cron(0 4 ? * 1 *) 
+
+  syncDespesasWorker:
+    handler: src/workers/sync-despesas-worker.handler
+    timeout: 300 # 5 minutos para dar tempo de baixar todas as despesas de 1 deputado
+    events:
+      - sqs:
+          arn: !GetAtt SyncDespesasQueue.Arn
+          batchSize: 1 # Pega 1 deputado por vez da fila
+          maximumConcurrency: 5
+
+resources:
+  Resources:
+    SyncDespesasQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: sync-despesas-queue
+        VisibilityTimeout: 300 # Deve ser igual ou maior que o timeout do Worker
