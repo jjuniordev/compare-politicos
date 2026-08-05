@@ -2,6 +2,7 @@ const Koa = require('koa');
 const Router = require('@koa/router');
 const cors = require('@koa/cors');
 const pool = require('../db/connection'); // Importa a conexão centralizada
+const { buildDespesaResumo } = require('../utils/despesa-resumo');
 const serverless = require('serverless-http');
 
 const app = new Koa();
@@ -57,7 +58,7 @@ router.get('/api/df/deputados', async (ctx) => {
   const client = await pool.connect();
   try {
     const query = `
-      SELECT id, nome, sigla_partido, sigla_uf, url_foto 
+      SELECT id, nome, sigla_partido, sigla_uf, url_foto, email, id_legislatura, uri, uri_partido
       FROM df_deputados 
       ORDER BY nome ASC 
       LIMIT $1
@@ -102,50 +103,23 @@ router.get('/api/df/deputados/:id/despesas/resumo', async (ctx) => {
 
   try {
     const query = `
-      WITH deputado_despesas AS (
-        SELECT
-          tipo_despesa,
-          valor,
-          data_emissao
-        FROM df_deputado_despesas
-        WHERE deputado_id = $1
-      ),
-      monthly_totals AS (
-        SELECT
-          DATE_TRUNC('month', data_emissao)::date AS mes,
-          SUM(valor) AS total_mes
-        FROM deputado_despesas
-        WHERE data_emissao IS NOT NULL
-        GROUP BY 1
-      ),
-      top_categoria AS (
-        SELECT
-          tipo_despesa,
-          SUM(valor) AS total_categoria
-        FROM deputado_despesas
-        WHERE tipo_despesa IS NOT NULL
-        GROUP BY tipo_despesa
-        ORDER BY total_categoria DESC
-        LIMIT 1
-      )
       SELECT
-        COALESCE((SELECT SUM(valor) FROM deputado_despesas), 0)::float8 AS gasto_total_acumulado,
-        COALESCE((SELECT MAX(valor) FROM deputado_despesas), 0)::float8 AS maior_despesa_unica,
-        COALESCE((SELECT AVG(total_mes) FROM monthly_totals), 0)::float8 AS gasto_medio_mensal,
-        COALESCE((SELECT tipo_despesa FROM top_categoria), 'Sem categoria') AS categoria_que_mais_gastou;
+        tipo_despesa,
+        valor,
+        data_emissao,
+        descricao,
+        payload ->> 'nomeFornecedor' AS nome_fornecedor,
+        payload ->> 'dataDocumento' AS data_documento_payload
+      FROM df_deputado_despesas
+      WHERE deputado_id = $1;
     `;
 
     const result = await client.query(query, [deputadoId]);
-    const row = result.rows[0];
+    const resumo = buildDespesaResumo(result.rows);
 
     ctx.body = {
       success: true,
-      data: {
-        gastoTotalAcumulado: row.gasto_total_acumulado,
-        maiorDespesaUnica: row.maior_despesa_unica,
-        gastoMedioMensal: row.gasto_medio_mensal,
-        categoriaMaisGastou: row.categoria_que_mais_gastou
-      }
+      data: resumo
     };
   } catch (error) {
     console.error('Erro ao resumir despesas do deputado:', error);

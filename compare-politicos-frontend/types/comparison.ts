@@ -3,6 +3,11 @@ export interface DespesaResumo {
   maiorDespesaUnica: number;
   gastoMedioMensal: number;
   categoriaMaisGastou: string;
+  maiorFornecedorNome: string;
+  maiorFornecedorValorTotal: number;
+  gastoDivulgacaoMarketing: number;
+  volumeNotasEmitidas: number;
+  gastosFinaisSemana: number;
 }
 
 export interface ComparisonMetric {
@@ -10,6 +15,7 @@ export interface ComparisonMetric {
   key: keyof DespesaResumo;
   isCurrency?: boolean;
   lowerIsBetter?: boolean;
+  group?: 'resumo-financeiro' | 'comportamento-gasto';
 }
 
 export interface DespesaResumoResponse {

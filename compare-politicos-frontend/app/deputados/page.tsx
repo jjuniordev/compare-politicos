@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FilterBar } from '@/components/FilterBar';
 import { DeputadoCard } from '@/components/DeputadoCard';
+import { DeputadoModal } from '@/components/DeputadoModal';
 import { Header } from '@/components/Header';
 import { LoadingGrid } from '@/components/LoadingGrid';
 import { EmptyState } from '@/components/EmptyState';
@@ -17,6 +18,8 @@ export default function DeputadosPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUf, setSelectedUf] = useState('');
   const [selectedPartido, setSelectedPartido] = useState('');
+  const [selectedDeputado, setSelectedDeputado] = useState<Deputado | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -123,6 +126,15 @@ export default function DeputadosPage() {
   const hasActiveFilters =
     searchTerm.trim().length > 0 || selectedUf.length > 0 || selectedPartido.length > 0;
 
+  const handleOpenQuickView = (deputado: Deputado) => {
+    setSelectedDeputado(deputado);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseQuickView = () => {
+    setIsModalOpen(false);
+  };
+
   return (
     <>
       <Header />
@@ -166,7 +178,11 @@ export default function DeputadosPage() {
             deputadosFiltrados.length > 0 ? (
               <section id="deputados" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
                 {deputadosFiltrados.map((deputado) => (
-                  <DeputadoCard key={deputado.id} deputado={deputado} />
+                  <DeputadoCard
+                    key={deputado.id}
+                    deputado={deputado}
+                    onClick={() => handleOpenQuickView(deputado)}
+                  />
                 ))}
               </section>
             ) : (
@@ -175,6 +191,8 @@ export default function DeputadosPage() {
           ) : null}
         </div>
       </main>
+
+      <DeputadoModal deputado={selectedDeputado} isOpen={isModalOpen} onClose={handleCloseQuickView} />
     </>
   );
 }

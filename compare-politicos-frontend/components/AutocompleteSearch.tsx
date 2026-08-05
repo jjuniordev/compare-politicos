@@ -6,35 +6,42 @@ import type { Deputado } from '@/types/deputado';
 
 interface AutocompleteSearchProps {
   deputados: Deputado[];
-  selectedDeputados: Deputado[];
+  excludedDeputadoIds?: number[];
   onSelect: (deputado: Deputado) => void;
   loading?: boolean;
+  label?: string;
+  inputId?: string;
+  placeholder?: string;
+  helperText?: string;
 }
 
 const MAX_RESULTS = 8;
 
 export function AutocompleteSearch({
   deputados,
-  selectedDeputados,
+  excludedDeputadoIds = [],
   onSelect,
-  loading = false
+  loading = false,
+  label = 'Buscar parlamentar',
+  inputId = 'comparar-autocomplete',
+  placeholder = 'Digite o nome do deputado',
+  helperText
 }: AutocompleteSearchProps) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const isLimitReached = selectedDeputados.length >= 2;
 
   const suggestions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    if (normalizedQuery.length === 0 || isLimitReached) {
+    if (normalizedQuery.length === 0) {
       return [];
     }
 
-    const selectedIds = new Set(selectedDeputados.map((item) => item.id));
+    const excludedIds = new Set(excludedDeputadoIds);
 
     return deputados
-      .filter((deputado) => !selectedIds.has(deputado.id))
+      .filter((deputado) => !excludedIds.has(deputado.id))
       .filter((deputado) => deputado.nome.toLowerCase().includes(normalizedQuery))
       .sort((a, b) => {
         const aStarts = a.nome.toLowerCase().startsWith(normalizedQuery);
@@ -50,7 +57,7 @@ export function AutocompleteSearch({
         return a.nome.localeCompare(b.nome);
       })
       .slice(0, MAX_RESULTS);
-  }, [deputados, isLimitReached, query, selectedDeputados]);
+  }, [deputados, excludedDeputadoIds, query]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -102,15 +109,15 @@ export function AutocompleteSearch({
 
   return (
     <div ref={wrapperRef} className="relative z-50 overflow-visible">
-      <label htmlFor="comparar-autocomplete" className="mb-2 block text-sm font-semibold text-slate-700">
-        Buscar parlamentares para comparar
+      <label htmlFor={inputId} className="mb-2 block text-sm font-semibold text-slate-700">
+        {label}
       </label>
 
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
 
         <input
-          id="comparar-autocomplete"
+          id={inputId}
           type="text"
           value={query}
           onChange={(event) => {
@@ -120,8 +127,8 @@ export function AutocompleteSearch({
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          disabled={loading || isLimitReached}
-          placeholder={isLimitReached ? 'Limite atingido (2/2 selecionados)' : 'Digite o nome do deputado'}
+          disabled={loading}
+          placeholder={placeholder}
           className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-800 shadow-sm outline-none transition focus:border-[#9fd1b7] focus:ring-4 focus:ring-[#dbf3e6] disabled:cursor-not-allowed disabled:bg-slate-100"
         />
       </div>
@@ -150,15 +157,13 @@ export function AutocompleteSearch({
         </ul>
       ) : null}
 
-      {isOpen && query.trim().length > 0 && suggestions.length === 0 && !isLimitReached ? (
+      {isOpen && query.trim().length > 0 && suggestions.length === 0 ? (
         <div className="absolute z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-500 shadow-xl">
           Nenhum parlamentar encontrado para esta busca.
         </div>
       ) : null}
 
-      <p className="mt-2 text-xs text-slate-500">
-        Selecione ate 2 parlamentares para habilitar a comparacao lado a lado.
-      </p>
+      {helperText ? <p className="mt-2 text-xs text-slate-500">{helperText}</p> : null}
     </div>
   );
 }
