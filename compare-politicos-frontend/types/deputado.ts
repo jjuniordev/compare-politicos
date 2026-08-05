@@ -4,6 +4,11 @@ export interface Deputado {
   sigla_partido: string;
   sigla_uf: string;
   url_foto: string;
+  email?: string;
+  telefone?: string;
+  id_legislatura?: number;
+  uri?: string;
+  uri_partido?: string;
 }
 
 export interface DeputadosResponse {

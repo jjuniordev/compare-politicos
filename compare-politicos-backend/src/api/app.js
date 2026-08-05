@@ -58,7 +58,7 @@ router.get('/api/df/deputados', async (ctx) => {
   const client = await pool.connect();
   try {
     const query = `
-      SELECT id, nome, sigla_partido, sigla_uf, url_foto 
+      SELECT id, nome, sigla_partido, sigla_uf, url_foto, email, id_legislatura, uri, uri_partido
       FROM df_deputados 
       ORDER BY nome ASC 
       LIMIT $1

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ArrowRightLeft, Search } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ComparisonHeader } from '@/components/ComparisonHeader';
@@ -11,6 +12,7 @@ import type { DespesaResumo, DespesaResumoResponse } from '@/types/comparison';
 const PAGE_SIZE = 200;
 
 export default function CompararPage() {
+  const searchParams = useSearchParams();
   const [deputados, setDeputados] = useState<Deputado[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -18,6 +20,7 @@ export default function CompararPage() {
   const [despesasByDeputado, setDespesasByDeputado] = useState<Record<number, DespesaResumo>>({});
   const [resumoLoadingByDeputado, setResumoLoadingByDeputado] = useState<Record<number, boolean>>({});
   const [resumoError, setResumoError] = useState<string | null>(null);
+  const initializedFromQueryRef = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -141,6 +144,39 @@ export default function CompararPage() {
       }));
     }
   };
+
+  useEffect(() => {
+    if (initializedFromQueryRef.current || loading || deputados.length === 0) {
+      return;
+    }
+
+    initializedFromQueryRef.current = true;
+
+    const deputadoFromQuery = searchParams.get('deputado1');
+    if (!deputadoFromQuery) {
+      return;
+    }
+
+    const deputadoId = Number.parseInt(deputadoFromQuery, 10);
+    if (Number.isNaN(deputadoId)) {
+      return;
+    }
+
+    const deputado = deputados.find((item) => item.id === deputadoId);
+    if (!deputado) {
+      return;
+    }
+
+    setSelectedDeputados((prev) => {
+      if (prev[0]?.id === deputado.id) {
+        return prev;
+      }
+
+      return [deputado, prev[1]];
+    });
+
+    void fetchDespesaResumo(deputado.id);
+  }, [deputados, loading, searchParams]);
 
   const handleSelectDeputado = (slotIndex: number, deputado: Deputado) => {
     const otherSlotIndex = slotIndex === 0 ? 1 : 0;

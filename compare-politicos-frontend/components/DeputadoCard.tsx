@@ -4,13 +4,33 @@ import type { Deputado } from '@/types/deputado';
 
 interface DeputadoCardProps {
   deputado: Deputado;
+  onClick?: () => void;
 }
 
-export function DeputadoCard({ deputado }: DeputadoCardProps) {
+export function DeputadoCard({ deputado, onClick }: DeputadoCardProps) {
   const hasPhoto = Boolean(deputado.url_foto);
+  const interactiveClass = onClick
+    ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d4f4e4]'
+    : '';
 
   return (
-    <article className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:scale-[1.01] hover:border-[#bfdccc] hover:shadow-lg">
+    <article
+      className={`group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:scale-[1.01] hover:border-[#bfdccc] hover:shadow-lg ${interactiveClass}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      aria-label={onClick ? `Abrir visualizacao rapida de ${deputado.nome}` : undefined}
+    >
       <div className="mb-4 flex justify-center">
         {hasPhoto ? (
           <Image
