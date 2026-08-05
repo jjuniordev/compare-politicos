@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowRightLeft, Search } from 'lucide-react';
 import { Header } from '@/components/Header';
-import { AutocompleteSearch } from '@/components/AutocompleteSearch';
 import { ComparisonHeader } from '@/components/ComparisonHeader';
 import { ComparisonTable } from '@/components/ComparisonTable';
 import type { Deputado, DeputadosResponse } from '@/types/deputado';
@@ -15,7 +14,7 @@ export default function CompararPage() {
   const [deputados, setDeputados] = useState<Deputado[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDeputados, setSelectedDeputados] = useState<Deputado[]>([]);
+  const [selectedDeputados, setSelectedDeputados] = useState<Array<Deputado | null>>([null, null]);
   const [despesasByDeputado, setDespesasByDeputado] = useState<Record<number, DespesaResumo>>({});
   const [resumoLoadingByDeputado, setResumoLoadingByDeputado] = useState<Record<number, boolean>>({});
   const [resumoError, setResumoError] = useState<string | null>(null);
@@ -143,41 +142,71 @@ export default function CompararPage() {
     }
   };
 
-  const handleSelectDeputado = (deputado: Deputado) => {
-    const canSelect = !selectedDeputados.some((item) => item.id === deputado.id) && selectedDeputados.length < 2;
+  const handleSelectDeputado = (slotIndex: number, deputado: Deputado) => {
+    const otherSlotIndex = slotIndex === 0 ? 1 : 0;
+    const otherSelected = selectedDeputados[otherSlotIndex];
+
+    if (otherSelected?.id === deputado.id) {
+      setResumoError('Este parlamentar ja esta selecionado no outro card.');
+      return;
+    }
+
+    const previousSelected = selectedDeputados[slotIndex];
 
     setSelectedDeputados((prev) => {
-      if (prev.some((item) => item.id === deputado.id) || prev.length >= 2) {
-        return prev;
-      }
-
-      return [...prev, deputado];
+      const next: Array<Deputado | null> = [...prev];
+      next[slotIndex] = deputado;
+      return next;
     });
 
-    if (canSelect) {
-      void fetchDespesaResumo(deputado.id);
+    if (previousSelected && previousSelected.id !== deputado.id) {
+      setDespesasByDeputado((prev) => {
+        const next = { ...prev };
+        delete next[previousSelected.id];
+        return next;
+      });
+
+      setResumoLoadingByDeputado((prev) => {
+        const next = { ...prev };
+        delete next[previousSelected.id];
+        return next;
+      });
     }
+
+    setResumoError(null);
+    void fetchDespesaResumo(deputado.id);
   };
 
-  const handleRemoveDeputado = (id: number) => {
-    setSelectedDeputados((prev) => prev.filter((item) => item.id !== id));
+  const handleRemoveDeputado = (slotIndex: number) => {
+    const removedDeputado = selectedDeputados[slotIndex];
+
+    setSelectedDeputados((prev) => {
+      const next: Array<Deputado | null> = [...prev];
+      next[slotIndex] = null;
+      return next;
+    });
+
+    if (!removedDeputado) {
+      return;
+    }
 
     setDespesasByDeputado((prev) => {
       const next = { ...prev };
-      delete next[id];
+      delete next[removedDeputado.id];
       return next;
     });
 
     setResumoLoadingByDeputado((prev) => {
       const next = { ...prev };
-      delete next[id];
+      delete next[removedDeputado.id];
       return next;
     });
   };
 
-  const isEmpty = selectedDeputados.length === 0;
-  const hasOneSelected = selectedDeputados.length === 1;
-  const hasTwoSelected = selectedDeputados.length === 2;
+  const selectedDeputadosList = selectedDeputados.filter((deputado): deputado is Deputado => deputado !== null);
+  const isEmpty = selectedDeputadosList.length === 0;
+  const hasOneSelected = selectedDeputadosList.length === 1;
+  const hasTwoSelected = selectedDeputadosList.length === 2;
 
   return (
     <>
@@ -191,15 +220,6 @@ export default function CompararPage() {
             <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
               Selecione dois parlamentares para analisar lado a lado os indicadores de despesas da atividade parlamentar.
             </p>
-
-            <div className="mt-6">
-              <AutocompleteSearch
-                deputados={deputados}
-                selectedDeputados={selectedDeputados}
-                onSelect={handleSelectDeputado}
-                loading={loading}
-              />
-            </div>
           </section>
 
           {loading ? (
@@ -214,17 +234,23 @@ export default function CompararPage() {
 
           {!loading && !error ? (
             <>
-              <ComparisonHeader selectedDeputados={selectedDeputados} onRemove={handleRemoveDeputado} />
+              <ComparisonHeader
+                deputados={deputados}
+                selectedDeputados={selectedDeputados}
+                onSelect={handleSelectDeputado}
+                onRemove={handleRemoveDeputado}
+                loading={loading}
+              />
 
               {isEmpty ? (
-                <section className="grid min-h-[260px] place-items-center rounded-2xl border border-dashed border-slate-300 bg-white/60 p-8 text-center">
+                <section className="grid min-h-65 place-items-center rounded-2xl border border-dashed border-slate-300 bg-white/60 p-8 text-center">
                   <div>
                     <div className="mx-auto mb-4 grid size-14 place-items-center rounded-2xl bg-[#edf7f1] text-[#08b862]">
                       <Search className="size-7" aria-hidden="true" />
                     </div>
                     <h3 className="text-xl font-semibold text-[#25384d]">Comece pesquisando o primeiro politico</h3>
                     <p className="mt-2 text-sm text-slate-600">
-                      Use o campo acima para adicionar dois deputados e destravar a comparacao completa.
+                      Use um dos campos de busca dos cards acima para adicionar dois deputados e destravar a comparacao completa.
                     </p>
                   </div>
                 </section>
@@ -237,16 +263,17 @@ export default function CompararPage() {
                     Falta 1 deputado para completar a comparacao
                   </div>
                   <p className="mt-3 text-sm text-slate-600">
-                    Selecione o segundo parlamentar na busca para exibir a tabela de metricas de despesas.
+                    Selecione o segundo parlamentar no outro card para exibir a tabela de metricas de despesas.
                   </p>
                 </section>
               ) : null}
 
               {hasTwoSelected ? (
-                <ComparisonTable selectedDeputados={selectedDeputados} despesasByDeputado={despesasByDeputado} />
+                <ComparisonTable selectedDeputados={selectedDeputadosList} despesasByDeputado={despesasByDeputado} />
               ) : null}
 
-              {hasTwoSelected && (resumoLoadingByDeputado[selectedDeputados[0].id] || resumoLoadingByDeputado[selectedDeputados[1].id]) ? (
+              {hasTwoSelected &&
+              (resumoLoadingByDeputado[selectedDeputadosList[0].id] || resumoLoadingByDeputado[selectedDeputadosList[1].id]) ? (
                 <p className="mt-3 text-sm text-slate-500">Carregando resumo de despesas da comparacao...</p>
               ) : null}
 
