@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ArrowRightLeft, Search } from 'lucide-react';
 import { Header } from '@/components/Header';
@@ -11,7 +11,7 @@ import type { DespesaResumo, DespesaResumoResponse } from '@/types/comparison';
 
 const PAGE_SIZE = 200;
 
-export default function CompararPage() {
+function CompararPageContent() {
   const searchParams = useSearchParams();
   const [deputados, setDeputados] = useState<Deputado[]>([]);
   const [loading, setLoading] = useState(true);
@@ -323,5 +323,37 @@ export default function CompararPage() {
         </div>
       </main>
     </>
+  );
+}
+
+function CompararPageFallback() {
+  return (
+    <>
+      <Header />
+
+      <main className="min-h-screen bg-[radial-gradient(1100px_460px_at_15%_-15%,#dbe7f2_0%,transparent_55%),radial-gradient(900px_420px_at_100%_0%,#d9f3e6_0%,transparent_50%),linear-gradient(to_bottom,#f6fafc,#edf4f8)] pb-14 pt-8">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+          <section className="mb-6 rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur sm:p-8">
+            <p className="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-[#08b862]">Comparacao de Gastos</p>
+            <h2 className="text-3xl font-bold tracking-tight text-[#25384d] sm:text-4xl">Comparar Politicos</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
+              Selecione dois parlamentares para analisar lado a lado os indicadores de despesas da atividade parlamentar.
+            </p>
+          </section>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
+            Carregando base de parlamentares...
+          </div>
+        </div>
+      </main>
+    </>
+  );
+}
+
+export default function CompararPage() {
+  return (
+    <Suspense fallback={<CompararPageFallback />}>
+      <CompararPageContent />
+    </Suspense>
   );
 }
