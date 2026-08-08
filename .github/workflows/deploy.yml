@@ -45,6 +45,7 @@ jobs:
         working-directory: ./compare-politicos-frontend
         env:
           NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_GA_ID: ${{ vars.NEXT_PUBLIC_GA_ID }}
         run: |
           npm ci
           npm run build
