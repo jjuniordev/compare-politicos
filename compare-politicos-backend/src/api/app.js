@@ -10,6 +10,18 @@ const router = new Router();
 
 // Libera requisições do seu frontend local (localhost:3000)
 app.use(cors());
+app.use(async (ctx, next) => {
+  ctx.set('Access-Control-Allow-Origin', '*');
+  ctx.set('Access-Control-Allow-Methods', 'GET,HEAD,PUT,POST,DELETE,PATCH,OPTIONS');
+  ctx.set('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+
+  if (ctx.method === 'OPTIONS') {
+    ctx.status = 204;
+    return;
+  }
+
+  await next();
+});
 
 // Rota de status (Health Check)
 router.get('/', async (ctx) => {
