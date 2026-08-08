@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRightLeft, Search } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ComparisonHeader } from '@/components/ComparisonHeader';
@@ -12,6 +12,8 @@ import type { DespesaResumo, DespesaResumoResponse } from '@/types/comparison';
 const PAGE_SIZE = 200;
 
 function CompararPageContent() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [deputados, setDeputados] = useState<Deputado[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +22,6 @@ function CompararPageContent() {
   const [despesasByDeputado, setDespesasByDeputado] = useState<Record<number, DespesaResumo>>({});
   const [resumoLoadingByDeputado, setResumoLoadingByDeputado] = useState<Record<number, boolean>>({});
   const [resumoError, setResumoError] = useState<string | null>(null);
-  const initializedFromQueryRef = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -145,38 +146,71 @@ function CompararPageContent() {
     }
   };
 
+  const updateComparacaoQueryParam = (slotIndex: number, deputadoId: number | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    const key = slotIndex === 0 ? 'deputado1' : 'deputado2';
+
+    if (deputadoId === null) {
+      params.delete(key);
+    } else {
+      params.set(key, String(deputadoId));
+    }
+
+    const query = params.toString();
+    const nextUrl = query ? `${pathname}?${query}` : pathname;
+    router.replace(nextUrl, { scroll: false });
+  };
+
+  const parseDeputadoId = (value: string | null) => {
+    if (!value) {
+      return null;
+    }
+
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return null;
+    }
+
+    return parsed;
+  };
+
+  const findDeputadoById = (id: number) => deputados.find((item) => Number(item.id) === id) ?? null;
+
   useEffect(() => {
-    if (initializedFromQueryRef.current || loading || deputados.length === 0) {
+    if (loading || deputados.length === 0) {
       return;
     }
 
-    initializedFromQueryRef.current = true;
-
-    const deputadoFromQuery = searchParams.get('deputado1');
-    if (!deputadoFromQuery) {
-      return;
-    }
-
-    const deputadoId = Number.parseInt(deputadoFromQuery, 10);
-    if (Number.isNaN(deputadoId)) {
-      return;
-    }
-
-    const deputado = deputados.find((item) => item.id === deputadoId);
-    if (!deputado) {
-      return;
-    }
+    const deputado1IdFromQuery = parseDeputadoId(searchParams.get('deputado1'));
+    const deputado2IdFromQuery = parseDeputadoId(searchParams.get('deputado2'));
+    const deputado1Selected = deputado1IdFromQuery ? findDeputadoById(deputado1IdFromQuery) : null;
+    const deputado2Raw = deputado2IdFromQuery ? findDeputadoById(deputado2IdFromQuery) : null;
+    const deputado2Selected = deputado1Selected && deputado2Raw?.id === deputado1Selected.id ? null : deputado2Raw;
 
     setSelectedDeputados((prev) => {
-      if (prev[0]?.id === deputado.id) {
+      const firstUnchanged = (prev[0]?.id ?? null) === (deputado1Selected?.id ?? null);
+      const secondUnchanged = (prev[1]?.id ?? null) === (deputado2Selected?.id ?? null);
+
+      if (firstUnchanged && secondUnchanged) {
         return prev;
       }
 
-      return [deputado, prev[1]];
+      return [deputado1Selected, deputado2Selected];
     });
-
-    void fetchDespesaResumo(deputado.id);
   }, [deputados, loading, searchParams]);
+
+  useEffect(() => {
+    const first = selectedDeputados[0];
+    const second = selectedDeputados[1];
+
+    if (first) {
+      void fetchDespesaResumo(first.id);
+    }
+
+    if (second) {
+      void fetchDespesaResumo(second.id);
+    }
+  }, [selectedDeputados]);
 
   const handleSelectDeputado = (slotIndex: number, deputado: Deputado) => {
     const otherSlotIndex = slotIndex === 0 ? 1 : 0;
@@ -210,6 +244,7 @@ function CompararPageContent() {
     }
 
     setResumoError(null);
+    updateComparacaoQueryParam(slotIndex, deputado.id);
     void fetchDespesaResumo(deputado.id);
   };
 
@@ -221,6 +256,8 @@ function CompararPageContent() {
       next[slotIndex] = null;
       return next;
     });
+
+    updateComparacaoQueryParam(slotIndex, null);
 
     if (!removedDeputado) {
       return;
@@ -237,6 +274,7 @@ function CompararPageContent() {
       delete next[removedDeputado.id];
       return next;
     });
+
   };
 
   const selectedDeputadosList = selectedDeputados.filter((deputado): deputado is Deputado => deputado !== null);
